@@ -1,23 +1,12 @@
-import random
 from PIL import Image, ImageDraw
 import numpy as np
+from skimage.feature import canny
 from sklearn.cluster import KMeans
-from scipy.spatial import distance
 
+# Load your input image
 filepath = "./masterSword.png"
-target_colors = [(249,108,98),
-           (245, 125, 32),
-           (251,171,24), 
-           (252,195,158),
-           (227,224,41),
-           (0,175,77),
-           (24,158,159),
-           (132,200,226),
-            (0,57,94),
-            (255,255,255)]
-
 input_image = Image.open(filepath)
-# Define the number of sections in both dimensions
+
 # Define the number of sections in both dimensions
 num_sections_x = 80
 num_sections_y = 80
@@ -26,10 +15,26 @@ num_sections_y = 80
 section_width = input_image.width // num_sections_x
 section_height = input_image.height // num_sections_y
 
+# Define the inset factor
+inset_factor = 0.75
+
 # Create a blank canvas to reconstruct the image
 output_image = Image.new("RGB", input_image.size)
 
-inset_factor = 0.1
+# Define the list of target colors including the border colors
+target_colors = [(249, 108, 98),
+                 (245, 125, 32),
+                 (251, 171, 24),
+                 (252, 195, 158),
+                 (227, 224, 41),
+                 (0, 175, 77),
+                 (24, 158, 159),
+                 (132, 200, 226),
+                 (0, 57, 94),
+                 (255, 255, 255)]  # Border color is (255, 255, 255)
+
+# Create a list to store all section colors
+section_colors = []
 
 section_colors = []
 
@@ -58,13 +63,15 @@ kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(section_colors)
 cluster_centers = kmeans.cluster_centers_.astype(int)
 
 # Map the cluster centroids to the target colors
-color_mapping = {}
-for i in range(n_clusters):
-    closest_target_color = min(target_colors, key=lambda x: np.linalg.norm(np.array(x) - cluster_centers[i]))
-    color_mapping[tuple(cluster_centers[i])] = closest_target_color
+color_mapping = {tuple(cluster_centers[i]): target_colors[i] for i in range(n_clusters)}
 
-# Create a drawing context for the output image
-draw = ImageDraw.Draw(output_image)
+# Apply Canny edge detection to the input image
+edge_image = canny(np.array(input_image.convert("L")), sigma=1.0)
+
+# Create a circular mask
+circle_mask = Image.new("L", (section_width, section_height), 0)
+draw_mask = ImageDraw.Draw(circle_mask)
+draw_mask.ellipse((0, 0, section_width * inset_factor, section_height * inset_factor), fill=255)
 
 # Iterate over each section again
 section_index = 0
@@ -84,16 +91,25 @@ for sx in range(num_sections_x):
         # Create a solid color section with the target color
         solid_section = Image.new("RGB", (section_width, section_height), target_color)
 
-        # Create a mask for the circular shape
-        mask = Image.new("L", (section_width, section_height), 0)
-        draw_mask = ImageDraw.Draw(mask)
-        draw_mask.ellipse((0, 0, section_width, section_height), fill=255)
+        # Get the edge mask for the current section
+        section_edge = edge_image[upper:lower, left:right]
 
-        # Paste the solid color section into the output image using the circular mask
-        output_image.paste(solid_section, (left, upper), mask)
+        # Determine if this section contains an edge
+        has_edge = np.any(section_edge)
+
+        # If there's an edge, use one of the edge target colors from target_colors
+        if has_edge:
+            edge_color_index = n_clusters - 4  # Start from the first edge color
+            output_color = target_colors[edge_color_index]
+        else:
+            output_color = target_color
+
+        # Create a solid color section with the output color
+        output_section = Image.new("RGB", (section_width, section_height), output_color)
+
+        # Paste the section into the output image
+        output_image.paste(output_section, (left, upper), circle_mask)
 
         section_index += 1
 
-
-# Save or display the reconstructed image
 output_image.show()
