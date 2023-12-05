@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw
 import numpy as np
 from skimage.feature import canny
 from sklearn.cluster import KMeans
-
+from scipy.spatial import distance
 # Load your input image
 filepath = "./masterSword.png"
 input_image = Image.open(filepath)
@@ -36,7 +36,14 @@ target_colors = [(249, 108, 98),
 # Create a list to store all section colors
 section_colors = []
 
-section_colors = []
+def colorDetector(color):
+    #change this to find the x most common colors and assign them a Random? color from here? 
+    colors = [[249,108,98], [245, 125, 32],[251,171,24], [252,195,158],[227,224,41],[0,175,77], [24,158,159], [132,200,226], [0,57,94], [255,255,255]]
+    color = np.array(color)
+    distances = np.linalg.norm(colors - color, axis=1)
+    index_of_smallest = np.argmin(distances)
+
+    return tuple(colors[index_of_smallest])
 
 for sx in range(num_sections_x):
     for sy in range(num_sections_y):
@@ -54,7 +61,6 @@ for sx in range(num_sections_x):
 
         # Add the average color to the list of section colors
         section_colors.append(average_color)
-
 # Apply K-means clustering to the section colors
 n_clusters = len(target_colors)
 kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(section_colors)
@@ -97,18 +103,27 @@ for sx in range(num_sections_x):
         # Determine if this section contains an edge
         has_edge = np.any(section_edge)
 
+
+        section = input_image.crop((left, upper, right, lower))
+
+        # Calculate the average color of the section
+        section_array = np.array(section)
+        average_color = tuple(map(int, np.mean(section_array, axis=(0, 1))))
+    
         # If there's an edge, use one of the edge target colors from target_colors
         if has_edge:
-            edge_color_index = n_clusters - 4  # Start from the first edge color
-            output_color = target_colors[edge_color_index]
+            output_image.paste(colorDetector(average_color), (left, upper), circle_mask)
+            #edge_color_index = n_clusters - 4  # Start from the first edge color
+            #output_color = target_colors[edge_color_index]
+            #
         else:
-            output_color = target_color
+           output_image.paste(solid_section, (left, upper), circle_mask)
 
-        # Create a solid color section with the output color
-        output_section = Image.new("RGB", (section_width, section_height), output_color)
+        # # Create a solid color section with the output color
+        # output_section = Image.new("RGB", (section_width, section_height), output_color)
 
-        # Paste the section into the output image
-        output_image.paste(output_section, (left, upper), circle_mask)
+        # # Paste the section into the output image
+        # output_image.paste(output_section, (left, upper), circle_mask)
 
         section_index += 1
 
