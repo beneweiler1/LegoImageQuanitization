@@ -117,7 +117,7 @@ def crop_to_circle(tiles, inset_factor):
 
 def createLegoTiles(path):
     try:
-        d_large = 5 
+        d_large = 10 
         d_small = 16
 
         image = Image.open(filepath)
