@@ -12,22 +12,6 @@ def colorDetector(color):
 
     return tuple(colors[index_of_smallest])
 
-def diffeningColorDetection(color):
-    colors = np.array([[249, 108, 98], [245, 125, 32], [251, 171, 24], [252, 195, 158],
-                       [227, 224, 41], [0, 175, 77], [24, 158, 159], [132, 200, 226],
-                       [0, 57, 94], [255, 255, 255]])
-
-    # Ensure that color is a single RGB tuple
-    color = np.array(color, dtype=np.uint8)
-
-    # Check if the color is a single RGB tuple
-    if color.shape == (3,):
-        distances = np.linalg.norm(colors - color, axis=1)
-        index_of_smallest = np.argmin(distances)
-        return tuple(colors[index_of_smallest])
-    else:
-        raise ValueError("Color must be a single RGB tuple")
-
 
 def make_square(image):
     width, height = image.size
@@ -131,27 +115,6 @@ def crop_to_circle(tiles, inset_factor):
 
     return circular_tiles
 
-def floyd_steinberg_dithering(image, color_detector):
-    height, width = image.shape[:2]
-
-    for y in range(height):
-        for x in range(width):
-            old_color = image[y, x].astype(int)
-            new_color = np.array(color_detector(old_color), dtype=int)
-            image[y, x] = new_color
-            quant_error = old_color - new_color
-
-            if x + 1 < width:
-                image[y, x + 1] = np.clip(image[y, x + 1] + quant_error * 7 / 16, 0, 255)
-            if x - 1 >= 0 and y + 1 < height:
-                image[y + 1, x - 1] = np.clip(image[y + 1, x - 1] + quant_error * 3 / 16, 0, 255)
-            if y + 1 < height:
-                image[y + 1, x] = np.clip(image[y + 1, x] + quant_error * 5 / 16, 0, 255)
-            if x + 1 < width and y + 1 < height:
-                image[y + 1, x + 1] = np.clip(image[y + 1, x + 1] + quant_error * 1 / 16, 0, 255)
-
-    return image.astype(np.uint8)
-
 def createLegoTiles(path):
     try:
         d_large = 5 
@@ -182,9 +145,7 @@ def createLegoTiles(path):
 
         # Combine the final tiles into the original image layout
         combined_image = combine_tiles(final_tiles, d_large)
-        #combined_image.show()
-        combine = np.array(final_tiles, dtype=np.uint8)
-        floyd_steinberg_dithering(combine, diffeningColorDetection).show()
+        combined_image.show()
 
     except IOError as e:
         print(f"An error occurred while opening the image: {e}")
